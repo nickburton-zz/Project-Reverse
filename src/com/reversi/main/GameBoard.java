@@ -25,7 +25,7 @@ public class GameBoard extends Activity {
 	private Canvas canvas;
 	
 	/**
-	 * Width and height of board.
+	 * Width and height of board - hi joe
 	 */
 	private int numCells = 8; 
 	private float width = 0;
