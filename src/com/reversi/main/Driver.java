@@ -53,15 +53,19 @@ public class Driver {
 					y = Integer.valueOf(stdin.nextLine());
 					
 					game1.move(x, y);
-					game1.clearValidCells();
-					game1.setBlacksTurn(!game1.isBlacksTurn());
-					if(game1.checkCells()==false)
-					{
-						game1.setBlacksTurn(!game1.isBlacksTurn());
-						game1.checkCells();
-					}
 					game1.display();
-					//choice1=0;
+					if(game1.gameOver()==true)
+					{
+						choice1=0;
+						choice=0;
+						System.out.println("P1="+game1.getP1Score()+" v P2="+game1.getP2Score());
+						if(game1.getP1Score()>game1.getP2Score())
+							System.out.println(game1.getPlayer1()+" wins");
+						else if(game1.getP2Score()>game1.getP1Score())
+							System.out.println(game1.getPlayer2()+" wins");
+						else
+							System.out.println("Draw?");
+					}
 				}
 			case 2:
 				

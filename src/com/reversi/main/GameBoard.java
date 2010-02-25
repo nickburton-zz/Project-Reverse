@@ -52,7 +52,7 @@ public class GameBoard extends Activity {
     
     public void setFirstCells(){
     	game = new Game("Scat","Tina");
-        Cell[] cells = game.getInitialCells();
+      //  Cell[] cells = game.getInitialCells();
         int row = 0;
         int col = 0;
         for(int i = 0; i < cells.length; i++){

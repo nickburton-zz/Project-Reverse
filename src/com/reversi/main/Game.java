@@ -20,16 +20,29 @@ public class Game {
 		this.setP1Score(2);
 		this.setP2Score(2);
 		this.setBlacksTurn(true);
-		for(int x=0; x<8; x++)
+		for(int row=0; row<8; row++)
 		{
-			for (int y=0; y<8; y++)
-				this.board[x][y] = new Cell(x,y,Cell.BLANK);
+			for (int col=0; col<8; col++)
+				this.board[row][col] = new Cell(row,col,Cell.BLANK);
 		}
 		//New Game default starting grid
 		this.board[3][3].setValue(Cell.WHITE);
 		this.board[3][4].setValue(Cell.BLACK);
 		this.board[4][3].setValue(Cell.BLACK);
 		this.board[4][4].setValue(Cell.WHITE);
+	}
+	/**
+	 * Function to be called after a new game is started to show the starting setup.
+	 * @return Cell array.
+	 */
+	public Cell[] getInitialCells()
+	{
+		Cell[] start = new Cell[4];
+		start[0] = this.board[3][3];
+		start[1] = this.board[3][4];
+		start[2] = this.board[4][3];
+		start[3] = this.board[4][4];
+		return start;
 	}
 	/**
 	 * Save all game variable into the DB. Only 1 game can be saved at a time.
@@ -51,345 +64,628 @@ public class Game {
 	}
 	/**
 	 * Checks if the cells above the selected cell will result in a valid move.
-	 * @param x x-coordinate of the cell
-	 * @param y y-coordinate of the cell
-	 * @return true if there is a valid move found. False if not.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
 	 */
-	private boolean checkUpValid(int x, int y)
+	private int checkUp(int col, int row)
 	{
+		int count=0;
 		boolean valid = false;
-		if((this.board[x][y].getValue()==Cell.BLANK || this.board[x][y].getValue()==Cell.VALID)  && y>=2)
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID)  && row>1)
 		{
-			if(this.blacksTurn==true && this.board[x][y-1].getValue()==Cell.WHITE)
+			if(this.board[col][row-1].getValue()==this.enemyColour())
 			{
-				for(int i=y-2;i>0;i--)
+				count++;
+				for(int i=row-2;i>-1;i--)
 				{
-					if(this.board[x][i].getValue()==Cell.BLACK)
+					if(this.board[col][i].getValue()==this.playerColour())
 					{
-						valid=true;
-						i=-1;
+						valid = true; // valid move
+						i=-2; 		//exit loop
 					}
-					else if(this.board[x][i].getValue()==Cell.BLANK)
+					else if(this.board[col][i].getValue()==Cell.BLANK)
 					{
-						valid=false;
-						i=-1;
+						valid = false;
+						i=-2; 		//exit loop
 					}
-				}
-			}
-			else if(this.blacksTurn==false && this.board[x][y-1].getValue()==Cell.BLACK)
-			{
-				for(int i=y-2;i>0;i--)
-				{
-					if(this.board[x][i].getValue()==Cell.WHITE)
+					else if(this.board[col][i].getValue()==Cell.VALID)
 					{
-						valid=true;
-						i=-1;
+						valid = false;
+						i=-2; 		//exit loop
 					}
-					else if(this.board[x][i].getValue()==Cell.BLANK)
-					{
-						valid=false;
-						i=-1;
-					}
+					else if(this.board[col][i].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
 				}
 			}
 		}
-		return valid;	
+		if(valid==true)
+			return count;
+		else
+			return 0;
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * upwards direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the selected cell.
+	 * @param row y-coordinate (row) of the selected cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	private void moveUp(int x, int y)
+	private Cell[] moveUp(int col, int row)
 	{
-		if(this.checkUpValid(x, y)==true && this.board[x][y].getValue()==Cell.VALID) //if there is a valid move above the cell
+		Cell[] change = new Cell[this.checkUp(col, row)];
+		int count = 0;
+		if(this.checkUp(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move above the cell
 		{
-			if(this.blacksTurn==true) //if blacks turn
+			for(int i=row-1;i>-1;i--) //for each cell above selected
 			{
-				this.board[x][y].setValue(Cell.BLACK); // mark selected cell black
-				for(int i=y-1;i>0;i--) //for each cell above selected
+				this.board[col][i].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[col][i-1].getValue()==this.playerColour()) //until you hit the boundary
+					i=-2; //exit loop
+				else
 				{
-					this.board[x][i].setValue(Cell.BLACK); //change the value to black
-					if(this.board[x][i].getValue()==Cell.BLACK) //until you hit the boundary
-						i=-1; //exit loop
-				}
-			}
-			else if(this.blacksTurn==false)//if whites turn
-			{
-				this.board[x][y].setValue(Cell.WHITE); //mark selected cell white
-				for(int i=y-1;i>0;i--) //for each cell above selected
-				{
-					this.board[x][i].setValue(Cell.WHITE); //change the value to white
-					if(this.board[x][i].getValue()==Cell.WHITE) //until you hit the boundary
-						i=-1; //exit loop
+					change[count] = this.board[col][i];
+					count++;
 				}
 			}
 		}
+		return change;
 	}
 	/**
 	 * Checks if the cells below the selected cell will result in a valid move.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
-	 * @return true if there is a valid move found. False if not.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
 	 */
-	private boolean checkDownValid(int x, int y)
+	private int checkDown(int col, int row)
 	{
+		int count=0;
 		boolean valid = false;
-		if((this.board[x][y].getValue()==Cell.BLANK || this.board[x][y].getValue()==Cell.VALID) && y<=5)
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID)  && row<6)
 		{
-			if(this.blacksTurn==true && this.board[x][y+1].getValue()==Cell.WHITE)
+			if(this.board[col][row+1].getValue()==this.enemyColour())
 			{
-				for(int i=y+2;i<8;i++)
+				count++;
+				for(int i=row+2;i<8;i++)
 				{
-					if(this.board[x][i].getValue()==Cell.BLACK)
+					if(this.board[col][i].getValue()==this.playerColour())
 					{
-						valid=true;
-						i=9;
+						valid = true;
+						i=9; 		//exit loop
 					}
-					else if(this.board[x][i].getValue()==Cell.BLANK)
+					else if(this.board[col][i].getValue()==Cell.BLANK)
 					{
-						valid=false;
-						i=9;
+						valid = false;
+						i=9; 		//exit loop
 					}
-				}
-			}
-			else if(this.blacksTurn==false && this.board[x][y+1].getValue()==Cell.BLACK)
-			{
-				for(int i=y+2;i<8;i++)
-				{
-					if(this.board[x][i].getValue()==Cell.WHITE)
+					else if(this.board[col][i].getValue()==Cell.VALID)
 					{
-						valid=true;
-						i=9;
+						valid = false;
+						i=9; 		//exit loop
 					}
-					else if(this.board[x][i].getValue()==Cell.BLANK)
-					{
-						valid=false;
-						i=9;
-					}
+					else if(this.board[col][i].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
 				}
 			}
 		}
-		return valid;
+		if(valid==true)
+			return count;
+		else
+			return 0;
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * downwards direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the cell.
+	 * @param row y-coordinate (row) of the cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	public void moveDown(int x, int y)
+	public Cell[] moveDown(int col, int row)
 	{
-		//TO DO
-	}
-	/**
-	 * Checks if the cells to the left of the selected cell will result in a valid move.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
-	 * @return true if there is a valid move found. False if not.
-	 */
-	private boolean checkLeftValid(int x, int y)
-	{
-		boolean valid = false;
-		if((this.board[x][y].getValue()==Cell.BLANK || this.board[x][y].getValue()==Cell.VALID) && x>=2)
+		Cell[] change = new Cell[this.checkDown(col, row)];
+		int count = 0;
+		if(this.checkDown(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move below the cell
 		{
-			if(this.blacksTurn==true && this.board[x-1][y].getValue()==Cell.WHITE)
+			for(int i=row+1;i<8;i++) //for each cell above selected
 			{
-				for(int i=x-2;i>0;i--)
+				this.board[col][i].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[col][i+1].getValue()==this.playerColour()) //until you hit the boundary
+					i=9; //exit loop
+				else
 				{
-					if(this.board[i][y].getValue()==Cell.BLACK)
-					{
-						valid=true;
-						i=-1;
-					}
-					else if(this.board[i][y].getValue()==Cell.BLANK)
-					{
-						valid=false;
-						i=-1;
-					}
-				}
-			}
-			else if(this.blacksTurn==false && this.board[x-1][y].getValue()==Cell.BLACK)
-			{
-				for(int i=x-2;i>0;i--)
-				{
-					if(this.board[i][y].getValue()==Cell.WHITE)
-					{
-						valid=true;
-						i=-1;
-					}
-					else if(this.board[i][y].getValue()==Cell.BLANK)
-					{
-						valid=false;
-						i=-1;
-					}
+					change[count] = this.board[col][i];
+					count++;
 				}
 			}
 		}
-		return valid;	
+		return change;
+	}
+	/**
+	 * Checks if the cells to the left of the selected cell will result in a valid move.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
+	 */
+	private int checkLeft(int col, int row)
+	{
+		int count=0;
+		boolean valid = false;
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID) && col>1)
+		{
+			if(this.board[col-1][row].getValue()==this.enemyColour())
+			{
+				count++;
+				for(int i=col-2;i>-1;i--)
+				{
+					if(this.board[i][row].getValue()==this.playerColour())
+					{
+						valid = true;
+						i=-2; 		//exit loop
+					}
+					else if(this.board[i][row].getValue()==Cell.BLANK)
+					{
+						valid = false;
+						i=-2; 		//exit loop
+					}
+					else if(this.board[i][row].getValue()==Cell.VALID)
+					{
+						valid = false;
+						i=-2; 		//exit loop
+					}
+					else if(this.board[i][row].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
+				}
+			}
+		}
+		if(valid==true)
+			return count;
+		else
+			return 0;	
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * left direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the cell.
+	 * @param row y-coordinate (row) of the cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	public void moveLeft(int x, int y)
+	public Cell[] moveLeft(int col, int row)
 	{
-		//TO DO
-	}
-	/**
-	 * Checks if the cell to the right of the selected cell will result in a valid move.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
-	 * @return true if there is a valid move found. False if not.
-	 */
-	private boolean checkRightValid(int x, int y)
-	{
-		boolean valid = false;
-		if((this.board[x][y].getValue()==Cell.BLANK || this.board[x][y].getValue()==Cell.VALID) && x<=5)
+		Cell[] change = new Cell[this.checkLeft(col, row)];
+		int count = 0;
+		if(this.checkLeft(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move left of the cell
 		{
-			if(this.blacksTurn==true && this.board[x+1][y].getValue()==Cell.WHITE)
+			for(int i=col-1;i>-1;i--) //for each cell above selected
 			{
-				for(int i=x+2;i>0;i--)
+				this.board[i][row].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[i-1][row].getValue()==this.playerColour()) //until you hit the boundary
+					i=-2; //exit loop
+				else
 				{
-					if(this.board[i][y].getValue()==Cell.BLACK)
-					{
-						valid=true;
-						i=-1;
-					}
-					else if(this.board[i][y].getValue()==Cell.BLANK)
-					{
-						valid=false;
-						i=-1;
-					}
-				}
-			}
-			else if(this.blacksTurn==false && this.board[x+1][y].getValue()==Cell.BLACK)
-			{
-				for(int i=x+2;i>0;i--)
-				{
-					if(this.board[i][y].getValue()==Cell.WHITE)
-					{
-						valid=true;
-						i=-1;
-					}
-					else if(this.board[i][y].getValue()==Cell.BLANK)
-					{
-						valid=false;
-						i=-1;
-					}
+					change[count] = this.board[i][row];
+					count++;
 				}
 			}
 		}
-		return valid;	
+		return change;
+	}
+	/**
+	 * Checks if the cell to the right of the selected cell will result in a valid move.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
+	 */
+	private int checkRight(int col, int row)
+	{
+		int count=0;
+		boolean valid = false;
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID) && col<6)
+		{
+			if(this.board[col+1][row].getValue()==this.enemyColour())
+			{
+				count++;
+				for(int i=col+2;i<8;i++)
+				{
+					if(this.board[i][row].getValue()==this.playerColour())
+					{
+						valid = true;
+						i=9; 		//exit loop
+					}
+					else if(this.board[i][row].getValue()==Cell.BLANK)
+					{
+						valid = false;
+						i=9; 		//exit loop
+					}
+					else if(this.board[i][row].getValue()==Cell.VALID)
+					{
+						valid = false;
+						i=9; 		//exit loop
+					}
+					else if(this.board[i][row].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
+				}
+			}
+		}
+		if(valid==true)
+			return count;
+		else
+			return 0;
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * right direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the cell.
+	 * @param row y-coordinate (row) of the cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	public void moveRight(int x, int y)
+	public Cell[] moveRight(int col, int row)
 	{
-		//TO DO
+		Cell[] change = new Cell[this.checkRight(col, row)];
+		int count = 0;
+		if(this.checkRight(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move left of the cell
+		{
+			for(int i=col+1;i<8;i++) //for each cell above selected
+			{
+				this.board[i][row].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[i+1][row].getValue()==this.playerColour()) //until you hit the boundary
+					i=9; //exit loop
+				else
+				{
+					change[count] = this.board[i][row];
+					count++;
+				}
+			}
+		}
+		return change;
 	}
 	/**
 	 * Checks if the cell diagonally left+down of the selected cell will result in a valid move.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
-	 * @return true if there is a valid move found. False if not.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
 	 */
-	private boolean checkLeftDownValid(int x, int y)
+	private int checkLeftDown(int col, int row)
 	{
-		return false;
+		int count=0;
+		boolean valid = false;
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID) && (col>1 && row<6))
+		{
+			if(this.board[col-1][row+1].getValue()==this.enemyColour())
+			{
+				count++;
+				for(int i=col-2,j=row+2;i>-1 && j<8;i--,j++)
+				{
+					if(this.board[i][j].getValue()==this.playerColour())
+					{
+						valid = true;
+						i=-2; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.BLANK)
+					{
+						valid = false;
+						i=-2; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.VALID)
+					{
+						valid = false;
+						i=-2; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
+				}
+			}
+		}
+		if(valid==true)
+			return count;
+		else
+			return 0;	
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * diagonal left+down direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the cell.
+	 * @param row y-coordinate (row) of the cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	public void moveLeftDown(int x, int y)
+	public Cell[] moveLeftDown(int col, int row)
 	{
-		//TO DO
+		Cell[] change = new Cell[this.checkLeftDown(col, row)];
+		int count = 0;
+		if(this.checkLeftDown(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move left of the cell
+		{
+			for(int i=col-1,j=row+1;i>-1 && j<8;i--,j++) //for each cell above selected
+			{
+				this.board[i][j].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[i-1][j+1].getValue()==this.playerColour()) //until you hit the boundary
+				{
+					i=-2; 		//exit loop
+					j=9;		//exit loop
+				}
+				else
+				{
+					change[count] = this.board[i][j];
+					count++;
+				}
+			}
+		}
+		return change;
 	}
 	/**
 	 * Checks if the cell diagonally right+down of the selected cell will result in a valid move.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
-	 * @return true if there is a valid move found. False if not.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
 	 */
-	private boolean checkRightDownValid(int x, int y)
+	private int checkRightDown(int col, int row)
 	{
-		return false;
+		int count=0;
+		boolean valid = false;
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID) && (col<6 && row<6))
+		{
+			if(this.board[col+1][row+1].getValue()==this.enemyColour())
+			{
+				count++;
+				for(int i=col+2,j=row+2;i<8 && j<8;i++,j++)
+				{
+					if(this.board[i][j].getValue()==this.playerColour())
+					{
+						valid = true;
+						i=9; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.BLANK)
+					{
+						valid = false;
+						i=9; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.VALID)
+					{
+						valid = false;
+						i=9; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
+				}
+			}
+		}
+		if(valid==true)
+			return count;
+		else
+			return 0;
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * diagonal right+down direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the cell.
+	 * @param row y-coordinate (row) of the cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	public void moveRightDown(int x, int y)
+	public Cell[] moveRightDown(int col, int row)
 	{
-		//TO DO
+		Cell[] change = new Cell[this.checkRightDown(col, row)];
+		int count = 0;
+		if(this.checkRightDown(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move left of the cell
+		{
+			for(int i=col+1,j=row+1;i<8 && j<8;i++,j++) //for each cell above selected
+			{
+				this.board[i][j].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[i+1][j+1].getValue()==this.playerColour()) //until you hit the boundary
+				{
+					i=9; 		//exit loop
+					j=9;		//exit loop
+				}
+				else
+				{
+					change[count] = this.board[i][j];
+					count++;
+				}
+			}
+		}
+		return change;
 	}
 	/**
 	 * Checks if the cell diagonally left+up of the selected cell will result in a valid move.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
-	 * @return true if there is a valid move found. False if not.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
 	 */
-	private boolean checkLeftUpValid(int x, int y)
+	private int checkLeftUp(int col, int row)
 	{
-		return false;
+		int count=0;
+		boolean valid = false;
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID) && (col>1 && row>1))
+		{
+			if(this.board[col-1][row-1].getValue()==this.enemyColour())
+			{
+				count++;
+				for(int i=col-2,j=row-2;i>-1 && j>-1;i--,j--)
+				{
+					if(this.board[i][j].getValue()==this.playerColour())
+					{
+						valid = true;
+						i=-2; 		//exit loop
+						j=-2;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.BLANK)
+					{
+						valid = false;
+						i=-2; 		//exit loop
+						j=-2;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.VALID)
+					{
+						valid = false;
+						i=-2; 		//exit loop
+						j=-2;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
+				}
+			}
+		}
+		if(valid==true)
+			return count;
+		else
+			return 0;
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * diagonal left+up direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the cell.
+	 * @param row y-coordinate (row) of the cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	public void moveLeftUp(int x, int y)
+	public Cell[] moveLeftUp(int col, int row)
 	{
-		//TO DO
+		Cell[] change = new Cell[this.checkLeftUp(col, row)];
+		int count = 0;
+		if(this.checkLeftUp(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move left of the cell
+		{
+			for(int i=col-1,j=row-1;i>-1 && j>-1;i--,j--) //for each cell above selected
+			{
+				this.board[i][j].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[i-1][j-1].getValue()==this.playerColour()) //until you hit the boundary
+				{
+					i=-2; 		//exit loop
+					j=-2;		//exit loop
+				}
+				else
+				{
+					change[count] = this.board[i][j];
+					count++;
+				}
+			}
+		}
+		return change;
 	}
 	/**
 	 * Checks if the cell diagonally right+up of the selected cell will result in a valid move.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
-	 * @return true if there is a valid move found. False if not.
+	 * @param col x-coordinate (column) of the cell
+	 * @param row y-coordinate (row) of the cell
+	 * @return an integer of the number of cells that need to be changed.
 	 */
-	private boolean checkRightUpValid(int x, int y)
+	private int checkRightUp(int col, int row)
 	{
-		return false;
+		int count=0;
+		boolean valid = false;
+		if((this.board[col][row].getValue()==Cell.BLANK || this.board[col][row].getValue()==Cell.VALID) && (col<6 && row>1))
+		{
+			if(this.board[col+1][row-1].getValue()==this.enemyColour())
+			{
+				count++;
+				for(int i=col+2,j=row-2;i<8 && j>-1;i++,j--)
+				{
+					if(this.board[i][j].getValue()==this.playerColour())
+					{
+						valid = true;
+						i=9; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.BLANK)
+					{
+						valid = false;
+						i=9; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==Cell.VALID)
+					{
+						valid = false;
+						i=9; 		//exit loop
+						j=9;		//exit loop
+					}
+					else if(this.board[i][j].getValue()==this.enemyColour())
+						count++;	//add to the count of cells that need changing
+				}
+			}
+		}
+		if(valid==true)
+			return count;
+		else
+			return 0;
 	}
 	/**
 	 * This function will change the cell values corresponding to a valid move in the
 	 * diagonal right+up direction. When moved over to android most likely will output the cell
 	 * co-ords that need to be changed to the GUI as well as changing the representation
 	 * in the data structure.
-	 * @param x x-coordinate of the selected cell.
-	 * @param y y-coordinate of the selected cell.
+	 * @param col x-coordinate (column) of the cell.
+	 * @param row y-coordinate (row) of the cell.
+	 * @return an array of Cells which have been changed.
 	 */
-	public void moveRightUp(int x, int y)
+	public Cell[] moveRightUp(int col, int row)
 	{
-		//TO DO
+		Cell[] change = new Cell[this.checkRightUp(col, row)];
+		int count = 0;
+		if(this.checkRightUp(col, row)!=0 && this.board[col][row].getValue()==Cell.VALID) //if there is a valid move left of the cell
+		{
+			for(int i=col+1,j=row-1;i<8 && j>-1;i++,j--) //for each cell above selected
+			{
+				this.board[i][j].setValue(this.playerColour()); //change the value to the players colour
+				if(this.board[i+1][j-1].getValue()==this.playerColour()) //until you hit the boundary
+				{
+					i=9; 		//exit loop
+					j=9;		//exit loop
+				}
+				else
+				{
+					change[count] = this.board[i][j];
+					count++;
+				}
+			}
+		}
+		return change;
+	}
+	/**
+	 * This function will determine the current players colour.
+	 * @return an integer.
+	 */
+	public int playerColour()
+	{
+		if(this.blacksTurn==true)
+			return Cell.BLACK;
+		else
+			return Cell.WHITE;
+	}
+	/**
+	 * This function will determine the opponents colour.
+	 * @return an integer 
+	 */
+	public int enemyColour()
+	{
+		if(this.blacksTurn==true)
+			return Cell.WHITE;
+		else
+			return Cell.BLACK;
+	}
+	/**
+	 * A function to determine if the game is still in progress.
+	 * @return true or false.
+	 */
+	public boolean gameOver()
+	{
+		if((this.p1Score+this.p2Score==64)|| this.p1Score==0 || this.p2Score==0)
+			return true;
+		else
+			return false;
 	}
 	/**
 	 * This function will check the cell the player wishes to select as a move.
@@ -402,9 +698,27 @@ public class Game {
 	 * @param x x-coordinate of the selected cell.
 	 * @param y y-coordinate of the selected cell.
 	 */
-	public void move(int x, int y)
+	public void move(int col, int row)
 	{
-		this.moveUp(x, y);
+		int totalCellsChanged = 
+		this.moveUp(col, row).length +
+		this.moveDown(col, row).length +
+		this.moveLeft(col, row).length +
+		this.moveRight(col, row).length +
+		this.moveLeftDown(col, row).length +
+		this.moveRightDown(col, row).length +
+		this.moveLeftUp(col, row).length +
+		this.moveRightUp(col, row).length;
+		
+		if (totalCellsChanged > 0){
+			this.board[col][row].setValue(this.playerColour());
+			this.clearValidCells();
+			this.blacksTurn=!this.blacksTurn; 	//change players turn
+			if(this.checkCells()==false && this.gameOver()==false){ //if there are no moves and the game is not over
+				this.blacksTurn=!this.blacksTurn; //go back to the other player
+				this.checkCells(); //mark the cells
+			}
+		}
 	}
 	/**
 	 * This function should be run after each move. This will highlight to the current
@@ -417,24 +731,24 @@ public class Game {
 		boolean anyValidCells = false;
 		this.p1Score = 0;
 		this.p2Score = 0;
-		for(int x=0; x<8; x++)
+		for(int col=0; col<8; col++)
 		{
-			for (int y=0; y<8; y++)
+			for (int row=0; row<8; row++)
 			{
-				if ( this.checkUpValid(x,y)==true ||
-				this.checkDownValid(x,y)==true ||
-				this.checkLeftValid(x,y)==true ||
-				this.checkRightValid(x,y)==true ||
-				this.checkLeftDownValid(x,y)==true ||
-				this.checkRightDownValid(x,y)==true ||
-				this.checkLeftUpValid(x,y)==true ||
-				this.checkRightUpValid(x,y)==true){
-					this.board[x][y].setValue(Cell.VALID);
-					anyValidCells = true;
-				}
-				if(this.board[x][y].getValue()==Cell.BLACK)
+				if (	this.checkUp(col,row)>0 ||
+						this.checkDown(col,row)>0 ||
+						this.checkLeft(col,row)>0 ||
+						this.checkRight(col,row)>0 ||
+						this.checkLeftDown(col,row)>0 ||
+						this.checkRightDown(col,row)>0 ||
+						this.checkLeftUp(col,row)>0 ||
+						this.checkRightUp(col,row)>0){
+							this.board[col][row].setValue(Cell.VALID);
+								anyValidCells = true;
+							}
+				if(this.board[col][row].getValue()==Cell.BLACK)
 					this.p1Score++;
-				if(this.board[x][y].getValue()==Cell.WHITE)
+				if(this.board[col][row].getValue()==Cell.WHITE)
 					this.p2Score++;
 			}
 		}
