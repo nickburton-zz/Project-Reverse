@@ -1,5 +1,4 @@
 package com.reversi.main;
-
 public class Cell {
 	
 	public static final int BLACK = 1;
